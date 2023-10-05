@@ -3,26 +3,42 @@ import datetime
 import inspect
 import os
 from omegaconf import OmegaConf
-
 import torch
-
 import diffusers
 from diffusers import AutoencoderKL, DDIMScheduler
-
 from tqdm.auto import tqdm
 from transformers import CLIPTextModel, CLIPTokenizer
-
 from animatediff.models.unet import UNet3DConditionModel
 from animatediff.pipelines.pipeline_animation import AnimationPipeline
 from animatediff.utils.util import save_videos_grid
 from animatediff.utils.util import load_weights
 from diffusers.utils.import_utils import is_xformers_available
-
 from einops import rearrange, repeat
-
 import csv, pdb, glob
 import math
 from pathlib import Path
+import boto3
+
+# Initialize the S3 client
+s3 = boto3.client('s3', region_name='us-east-2')
+
+def upload_gif_file(file_path, user_id):
+    bucket_name = 'flush-user-images'
+    folder_name = 'generated_gifs'
+    s3_file_name = f'{folder_name}/{user_id}/{file_path.split("/")[-1]}'
+    
+    with open(file_path, 'rb') as file:
+        content_disposition = f'inline; filename={file_path.split("/")[-1]}'
+        s3.put_object(
+            Body=file,
+            Bucket=bucket_name,
+            Key=s3_file_name,
+            ContentType='image/gif',
+            ACL='public-read',
+            ContentDisposition=content_disposition
+        )
+    url = f"https://{bucket_name}.s3.amazonaws.com/{s3_file_name}"
+    print(url)
 
 
 def main(args):
@@ -104,20 +120,33 @@ def main(args):
                 sample_idx += 1
 
     samples = torch.concat(samples)
-    save_videos_grid(samples, f"{savedir}/sample.gif", n_rows=4)
+    # save_videos_grid(samples, f"{savedir}/sample.gif", n_rows=4)
+
+    # OmegaConf.save(config, f"{savedir}/config.yaml")
+
+    gif_path = f"{savedir}/{args.user_id}.gif"
+    save_videos_grid(samples, gif_path, n_rows=4)
+
+    # Upload the gif to AWS
+    upload_gif_file(gif_path, args.user_id)
+
+    # Delete the gif
+    os.remove(gif_path)
 
     OmegaConf.save(config, f"{savedir}/config.yaml")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained_model_path", type=str, default="models/StableDiffusion/stable-diffusion-v1-5",)
-    parser.add_argument("--inference_config",      type=str, default="configs/inference/inference-v1.yaml")    
-    parser.add_argument("--config",                type=str, required=True)
-    
-    parser.add_argument("--L", type=int, default=16 )
+    parser.add_argument("--pretrained_model_path", type=str, default="models/StableDiffusion/stable-diffusion-v1-5")
+    parser.add_argument("--inference_config", type=str, default="configs/inference/inference-v1.yaml")
+    parser.add_argument("--config", type=str, required=True)
+    parser.add_argument("--L", type=int, default=16)
     parser.add_argument("--W", type=int, default=512)
     parser.add_argument("--H", type=int, default=512)
+    
+    # Adding the new user_id argument
+    parser.add_argument("--user_id", type=str, required=True)
 
     args = parser.parse_args()
     main(args)
