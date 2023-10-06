@@ -22,10 +22,10 @@ import boto3
 # Initialize the S3 client
 s3 = boto3.client('s3', region_name='us-east-2')
 
-def upload_gif_file(file_path, user_id):
+def upload_gif_file(file_path, user_id, gif_num):
     bucket_name = 'flush-user-images'
     folder_name = 'generated_gifs'
-    s3_file_name = f'{folder_name}/{user_id}/{file_path.split("/")[-1]}'
+    s3_file_name = f'{folder_name}/{user_id}/gif_{gif_num}'
     
     with open(file_path, 'rb') as file:
         content_disposition = f'inline; filename={file_path.split("/")[-1]}'
@@ -128,7 +128,7 @@ def main(args):
     save_videos_grid(samples, gif_path, n_rows=4)
 
     # Upload the gif to AWS
-    upload_gif_file(gif_path, args.user_id)
+    upload_gif_file(gif_path, args.user_id, args.gif_num)
 
     # Delete the gif
     os.remove(gif_path)
@@ -147,6 +147,7 @@ if __name__ == "__main__":
     
     # Adding the new user_id argument
     parser.add_argument("--user_id", type=str, required=True)
+    parser.add_argument("--gif_num", type=str, required=True)
 
     args = parser.parse_args()
     main(args)
