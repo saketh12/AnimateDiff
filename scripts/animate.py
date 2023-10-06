@@ -25,7 +25,7 @@ s3 = boto3.client('s3', region_name='us-east-2')
 def upload_gif_file(file_path, user_id, gif_num):
     bucket_name = 'flush-user-images'
     folder_name = 'generated_gifs'
-    s3_file_name = f'{folder_name}/{user_id}/gif_{gif_num}'
+    s3_file_name = f'{folder_name}/{user_id}/gif_{gif_num}.gif'
     
     with open(file_path, 'rb') as file:
         content_disposition = f'inline; filename={file_path.split("/")[-1]}'
